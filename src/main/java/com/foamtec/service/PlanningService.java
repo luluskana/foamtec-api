@@ -4,6 +4,7 @@ import com.foamtec.dao.MaterialPlanningDao;
 import com.foamtec.domain.MaterialConvert;
 import com.foamtec.domain.MaterialPlanning;
 import com.foamtec.domain.MaterialSuccess;
+import org.apache.commons.io.IOUtils;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
@@ -21,9 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -113,7 +112,13 @@ public class PlanningService {
             if(cell1.getCellType() != Cell.CELL_TYPE_BLANK && cell2.getCellType() != Cell.CELL_TYPE_BLANK && cell3.getCellType() != Cell.CELL_TYPE_BLANK) {
                 System.out.println("cell1 = " + cell1 + ", cell2 = " + cell2 + ", cell3 = " + cell3);
                 celesticaPart = cell1.getStringCellValue();
-                startDateStr = cell2.getStringCellValue();
+                if(cell2.getCellType() == Cell.CELL_TYPE_NUMERIC) {
+                    Date stDate = cell2.getDateCellValue();
+                    startDateStr = formatter.format(stDate);
+                } else if(cell2.getCellType() == Cell.CELL_TYPE_STRING) {
+                    startDateStr = cell2.getStringCellValue();
+                }
+
                 qty = cell3.getNumericCellValue();
                 partCustomerSet.add(celesticaPart);
 
@@ -137,7 +142,7 @@ public class PlanningService {
         }
         Map<String,MaterialPlanning> partFoamtecMap = new HashMap<>();
         for(String s : partCustomerSet) {
-            partFoamtecMap.put(s,materialPlanningDao.findByCustomerPart(celesticaPart));
+            partFoamtecMap.put(s,materialPlanningDao.findByCustomerPart(s));
         }
 
         List<MaterialSuccess> materialSuccessList = new ArrayList<>();
@@ -157,13 +162,14 @@ public class PlanningService {
 
             MaterialSuccess materialSuccess = new MaterialSuccess();
             materialSuccess.setCustomerPart(s);
-            if(partFoamtecMap.get(s) == null) {
-                materialSuccess.setFoamtecPart("N/A");
-            } else {
-                materialSuccess.setFoamtecPart(partFoamtecMap.get(s).getMaterialFoamtec());
-            }
             for(MaterialConvert mc : materialConvertList) {
                 if(mc.getCustomerPart().equals(s)) {
+
+                    if(partFoamtecMap.get(s) == null) {
+                        materialSuccess.setFoamtecPart("N/A");
+                    } else {
+                        materialSuccess.setFoamtecPart(partFoamtecMap.get(s).getMaterialFoamtec());
+                    }
 
                     if(mc.getMonth().equals("January")) {
                         total1 = total1 + mc.getQty();
@@ -593,18 +599,6 @@ public class PlanningService {
         jsonObject.put("totalData", totalData);
         return jsonObject;
     }
-
-//    @RequestMapping(value = "/api/file", method = RequestMethod.GET)
-//    @ResponseBody
-//    public void downloadFile(HttpServletResponse response) {
-//        try {
-//            response.setContentType("");
-//            response.setHeader("Content-Disposition", "inline;filename=" + fileData.getFileName());
-//            response.getOutputStream().write(fileData.getDataFile());
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
 
     public String theMonth(int month){
         String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
